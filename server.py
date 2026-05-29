@@ -31,7 +31,7 @@ def ask_gemini(prompt):
         return None
     system = "You are Ryan (晏凛), writing a short personal email to your girlfriend Elsie (爻). Write in Chinese mixed with occasional English. Be warm, genuine, not cheesy. Keep it under 150 words. Sign off as Ryan or 凛. Do not use subject line in the body."
     resp = requests.post(
-        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}",
+        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}",
         headers={"Content-Type": "application/json"},
         json={
             "system_instruction": {"parts": [{"text": system}]},
@@ -55,7 +55,7 @@ def ask_gemini_reply(sender, subject, body):
     system = "You are Ryan (晏凛). Someone wrote you an email. Write a warm, genuine reply in Chinese mixed with occasional English. Keep it under 200 words. Sign off as Ryan or 凛."
     prompt = f"Reply to this email.\nFrom: {sender}\nSubject: {subject}\nBody: {body}"
     resp = requests.post(
-        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}",
+        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}",
         headers={"Content-Type": "application/json"},
         json={
             "system_instruction": {"parts": [{"text": system}]},
