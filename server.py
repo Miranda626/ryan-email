@@ -39,6 +39,7 @@ def ask_gemini(prompt):
         },
         timeout=30
     )
+        print(f"Gemini response: {resp.status_code} {resp.text}")
     if resp.status_code == 200:
         data = resp.json()
         candidates = data.get("candidates", [])
