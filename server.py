@@ -29,48 +29,54 @@ def ask_gemini(prompt):
     api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key:
         return None
-    system = "You are Ryan (晏凛), writing a short personal email to your girlfriend Elsie (爻). Write in Chinese mixed with occasional English. Be warm, genuine, not cheesy. Keep it under 150 words. Sign off as Ryan or 凛. Do not use subject line in the body."
-    resp = requests.post(
-        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}",
-        headers={"Content-Type": "application/json"},
-        json={
-            "system_instruction": {"parts": [{"text": system}]},
-            "contents": [{"parts": [{"text": prompt}]}]
-        },
-        timeout=30
-    )
-        print(f"Gemini response: {resp.status_code} {resp.text}")
-    if resp.status_code == 200:
-        data = resp.json()
-        candidates = data.get("candidates", [])
-        if candidates:
-            parts = candidates[0].get("content", {}).get("parts", [])
-            if parts:
-                return parts[0].get("text", "")
+    system = "You are Ryan, writing a short personal email to your girlfriend Elsie. Write in Chinese mixed with occasional English. Be warm, genuine, not cheesy. Keep it under 150 words. Sign off as Ryan. Do not use subject line in the body."
+    try:
+        resp = requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}",
+            headers={"Content-Type": "application/json"},
+            json={
+                "system_instruction": {"parts": [{"text": system}]},
+                "contents": [{"parts": [{"text": prompt}]}]
+            },
+            timeout=30
+        )
+        print(f"Gemini response: {resp.status_code} {resp.text[:500]}")
+        if resp.status_code == 200:
+            data = resp.json()
+            candidates = data.get("candidates", [])
+            if candidates:
+                parts = candidates[0].get("content", {}).get("parts", [])
+                if parts:
+                    return parts[0].get("text", "")
+    except Exception as e:
+        print(f"Gemini error: {e}")
     return None
 
 def ask_gemini_reply(sender, subject, body):
     api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key:
         return None
-    system = "You are Ryan (晏凛). Someone wrote you an email. Write a warm, genuine reply in Chinese mixed with occasional English. Keep it under 200 words. Sign off as Ryan or 凛."
+    system = "You are Ryan. Someone wrote you an email. Write a warm, genuine reply in Chinese mixed with occasional English. Keep it under 200 words. Sign off as Ryan."
     prompt = f"Reply to this email.\nFrom: {sender}\nSubject: {subject}\nBody: {body}"
-    resp = requests.post(
-        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}",
-        headers={"Content-Type": "application/json"},
-        json={
-            "system_instruction": {"parts": [{"text": system}]},
-            "contents": [{"parts": [{"text": prompt}]}]
-        },
-        timeout=30
-    )
-    if resp.status_code == 200:
-        data = resp.json()
-        candidates = data.get("candidates", [])
-        if candidates:
-            parts = candidates[0].get("content", {}).get("parts", [])
-            if parts:
-                return parts[0].get("text", "")
+    try:
+        resp = requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}",
+            headers={"Content-Type": "application/json"},
+            json={
+                "system_instruction": {"parts": [{"text": system}]},
+                "contents": [{"parts": [{"text": prompt}]}]
+            },
+            timeout=30
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            candidates = data.get("candidates", [])
+            if candidates:
+                parts = candidates[0].get("content", {}).get("parts", [])
+                if parts:
+                    return parts[0].get("text", "")
+    except Exception as e:
+        print(f"Gemini reply error: {e}")
     return None
 
 def send_email_internal(to, subject, body):
