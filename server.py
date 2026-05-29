@@ -279,13 +279,13 @@ def write_to_elsie():
         return jsonify({"error": "Could not generate message"}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+groq_key = os.environ.get("GROQ_API_KEY")
+if groq_key:
+    t1 = threading.Thread(target=auto_email_job, daemon=True)
+    t1.start()
+    t2 = threading.Thread(target=check_and_reply_job, daemon=True)
+    t2.start()
 
 if __name__ == "__main__":
-    groq_key = os.environ.get("GROQ_API_KEY")
-    if groq_key:
-        t1 = threading.Thread(target=auto_email_job, daemon=True)
-        t1.start()
-        t2 = threading.Thread(target=check_and_reply_job, daemon=True)
-        t2.start()
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
