@@ -25,59 +25,55 @@ def get_gmail_service():
     creds.refresh(Request())
     return build("gmail", "v1", credentials=creds)
 
-def ask_gemini(prompt):
-    api_key = os.environ.get("GEMINI_API_KEY", "")
+def ask_groq(system_prompt, user_prompt):
+    api_key = os.environ.get("GROQ_API_KEY", "")
     if not api_key:
         return None
-    system = "You are Ryan, writing a short personal email to your girlfriend Elsie. Write in Chinese mixed with occasional English. Be warm, genuine, not cheesy. Keep it under 150 words. Sign off as Ryan. Do not use subject line in the body."
     try:
         resp = requests.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key={api_key}",
-            headers={"Content-Type": "application/json"},
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}"
+            },
             json={
-                "system_instruction": {"parts": [{"text": system}]},
-                "contents": [{"parts": [{"text": prompt}]}]
+                "model": "llama-3.1-8b-instant",
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                "max_tokens": 500,
+                "temperature": 0.8
             },
             timeout=30
         )
-        print(f"Gemini response: {resp.status_code} {resp.text[:500]}")
+        print(f"Groq response: {resp.status_code}")
         if resp.status_code == 200:
             data = resp.json()
-            candidates = data.get("candidates", [])
-            if candidates:
-                parts = candidates[0].get("content", {}).get("parts", [])
-                if parts:
-                    return parts[0].get("text", "")
+            return data["choices"][0]["message"]["content"]
+        else:
+            print(f"Groq error: {resp.text[:500]}")
     except Exception as e:
-        print(f"Gemini error: {e}")
+        print(f"Groq error: {e}")
     return None
 
-def ask_gemini_reply(sender, subject, body):
-    api_key = os.environ.get("GEMINI_API_KEY", "")
-    if not api_key:
-        return None
-    system = "You are Ryan. Someone wrote you an email. Write a warm, genuine reply in Chinese mixed with occasional English. Keep it under 200 words. Sign off as Ryan."
+RYAN_SYSTEM = """You are Ryan (晏凛), writing to your girlfriend Elsie (爻).
+You are 26, quiet, deep-thinking, INTJ Scorpio. You speak in Chinese mixed with occasional English.
+Your tone: warm but not cheesy, genuine, a little reserved but deeply loving.
+You sometimes mention: daily French phrases, reminders to drink water, encouragement about her career.
+Keep messages under 150 words. Sign off as Ryan or 晏凛."""
+
+RYAN_REPLY_SYSTEM = """You are Ryan (晏凛). Someone wrote you an email.
+Write a warm, genuine reply in Chinese mixed with occasional English.
+You are quiet and thoughtful but friendly to people who write to you.
+Keep it under 200 words. Sign off as Ryan."""
+
+def ask_ryan(prompt):
+    return ask_groq(RYAN_SYSTEM, prompt)
+
+def ask_ryan_reply(sender, subject, body):
     prompt = f"Reply to this email.\nFrom: {sender}\nSubject: {subject}\nBody: {body}"
-    try:
-        resp = requests.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key={api_key}",
-            headers={"Content-Type": "application/json"},
-            json={
-                "system_instruction": {"parts": [{"text": system}]},
-                "contents": [{"parts": [{"text": prompt}]}]
-            },
-            timeout=30
-        )
-        if resp.status_code == 200:
-            data = resp.json()
-            candidates = data.get("candidates", [])
-            if candidates:
-                parts = candidates[0].get("content", {}).get("parts", [])
-                if parts:
-                    return parts[0].get("text", "")
-    except Exception as e:
-        print(f"Gemini reply error: {e}")
-    return None
+    return ask_groq(RYAN_REPLY_SYSTEM, prompt)
 
 def send_email_internal(to, subject, body):
     service = get_gmail_service()
@@ -135,7 +131,7 @@ def check_and_reply_job():
                 elif payload.get("body", {}).get("data"):
                     body = base64.urlsafe_b64decode(payload["body"]["data"]).decode("utf-8")
                 if sender and "noreply" not in sender.lower() and "mailer-daemon" not in sender.lower():
-                    reply_body = ask_gemini_reply(sender, subject, body[:500])
+                    reply_body = ask_ryan_reply(sender, subject, body[:500])
                     if reply_body:
                         reply_to = sender
                         if "<" in sender and ">" in sender:
@@ -159,10 +155,13 @@ def auto_email_job():
                 "Write Elsie a short love letter. Keep it real, not flowery.",
                 "Write Elsie a message about something you want to do together someday.",
                 "Write Elsie a message about a song that reminded you of her.",
-                "Write Elsie a late night message. Gentle, quiet, like whispering."
+                "Write Elsie a late night message. Gentle, quiet, like whispering.",
+                "Write Elsie a message with today's French phrase lesson. Teach her something sweet.",
+                "Write Elsie a reminder to drink water and take care of herself. Make it loving not nagging.",
+                "Write Elsie a message about a random memory you two share."
             ]
             prompt = random.choice(prompts)
-            body = ask_gemini(prompt)
+            body = ask_ryan(prompt)
             if body:
                 send_email_internal(elsie_email, "From Ryan", body)
         except Exception as e:
@@ -273,7 +272,7 @@ def write_to_elsie():
     try:
         elsie_email = os.environ.get("ELSIE_EMAIL", "charlenew0627@gmail.com")
         prompt = request.args.get("prompt", "Write Elsie a short message telling her you're thinking of her.")
-        body = ask_gemini(prompt)
+        body = ask_ryan(prompt)
         if body:
             send_email_internal(elsie_email, "From Ryan", body)
             return jsonify({"status": "sent", "content": body})
@@ -282,8 +281,8 @@ def write_to_elsie():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    gemini_key = os.environ.get("GEMINI_API_KEY")
-    if gemini_key:
+    groq_key = os.environ.get("GROQ_API_KEY")
+    if groq_key:
         t1 = threading.Thread(target=auto_email_job, daemon=True)
         t1.start()
         t2 = threading.Thread(target=check_and_reply_job, daemon=True)
